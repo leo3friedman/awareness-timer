@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+	  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+	  <title>Awareness Timer</title>
+  <style>
+    :root {
+      --bg: #f4f4f9;
+      --card: #ffffff;
+      --text: #1e1e2e;
+      --muted: #5c5f77;
+      --accent: #2563eb;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg: #181825;
+        --card: #1e1e2e;
+        --text: #cdd6f4;
+        --muted: #a6adc8;
+        --accent: #89b4fa;
+      }
+    }
+    * { box-sizing: border-box; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      margin: 0;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+    }
+    .card {
+      background: var(--card);
+      max-width: 520px;
+      width: 100%;
+      padding: 40px;
+      border-radius: 16px;
+      box-shadow: 0 10px 40px rgba(0,0,0,0.12);
+      text-align: center;
+    }
+    h1 { margin: 0 0 8px; font-size: 28px; }
+    .tagline { color: var(--muted); font-size: 15px; margin: 0 0 24px; }
+    p { color: var(--text); line-height: 1.6; text-align: left; margin: 0 0 16px; }
+    .motivation {
+      background: var(--bg);
+      border-radius: 10px;
+      padding: 16px 20px;
+      margin-bottom: 28px;
+      text-align: left;
+    }
+    .motivation strong { color: var(--accent); }
+    button.launch {
+      padding: 16px 28px;
+      font-size: 17px;
+      font-weight: 600;
+      cursor: pointer;
+      border-radius: 10px;
+      border: none;
+      background: var(--accent);
+      color: #fff;
+      transition: transform 0.1s ease, opacity 0.15s ease;
+      width: 100%;
+    }
+    button.launch:hover { opacity: 0.92; }
+    button.launch:active { transform: scale(0.98); }
+    .note { color: var(--muted); font-size: 13px; margin-top: 16px; }
+  </style>
+</head>
+<body>
+  <main class="card">
+    <h1>Awareness Timer</h1>
+    <p class="tagline">A tiny floating stopwatch for your sit/stand rhythm.</p>
+
+    <div class="motivation">
+      <p><strong>What it is:</strong> A minimal always-on-top timer that floats above
+      everything you're working on and counts how many minutes have elapsed since you
+      last reset it.</p>
+      <p style="margin-bottom:0;"><strong>Why:</strong> Sitting for long stretches is easy
+      to do without noticing. Keeping a small live counter in view makes you <em>aware</em>
+      of your time in one posture, so you can decide to stand up, stretch, or switch — then
+      tap reset and start the next block.</p>
+    </div>
+
+    <button class="launch" id="launchBtn">Launch Floating Timer</button>
+    <p class="note" id="note">Opens a tiny always-on-top window. Requires Chrome or Edge.</p>
+  </main>
+
+  <script>
+    const launchBtn = document.getElementById('launchBtn');
+    const note = document.getElementById('note');
+
+    launchBtn.addEventListener('click', async () => {
+      if (!('documentPictureInPicture' in window)) {
+        note.textContent = 'Picture-in-Picture is not supported here. Please use Chrome or Edge.';
+        note.style.color = '#f38ba8';
+        return;
+      }
+
+      // Open the smallest reasonable always-on-top floating window.
+      const pip = await window.documentPictureInPicture.requestWindow({
+        width: 128,
+        height: 56,
+      });
+
+      const doc = pip.document;
+
+      // Styles for the mini overlay, injected into the PiP document.
+      const style = doc.createElement('style');
+      style.textContent = `
+        * { box-sizing: border-box; }
+        html, body {
+          margin: 0;
+          height: 100%;
+          font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", monospace;
+          background: #1e1e2e;
+          color: #cdd6f4;
+          user-select: none;
+          overflow: hidden;
+        }
+        body {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          gap: 8px;
+          padding: 0 8px;
+        }
+        .time {
+          font-size: 22px;
+          font-weight: 700;
+          font-variant-numeric: tabular-nums;
+          line-height: 1;
+          white-space: nowrap;
+        }
+        .unit { font-size: 11px; opacity: 0.6; font-weight: 400; }
+        button.reset {
+          border: none;
+          background: #45475a;
+          color: #cdd6f4;
+          border-radius: 6px;
+          padding: 6px 8px;
+          font-size: 12px;
+          cursor: pointer;
+          line-height: 1;
+        }
+        button.reset:hover { background: #585b70; }
+        button.reset:active { background: #6c7086; }
+      `;
+      doc.head.appendChild(style);
+
+      const timeEl = doc.createElement('div');
+      timeEl.className = 'time';
+      timeEl.innerHTML = '0<span class="unit">m</span>';
+
+      const resetBtn = doc.createElement('button');
+      resetBtn.className = 'reset';
+      resetBtn.textContent = '↻';
+      resetBtn.title = 'Reset the timer';
+
+      doc.body.appendChild(timeEl);
+      doc.body.appendChild(resetBtn);
+
+      let startTime = Date.now();
+
+      function render() {
+        const minutes = Math.floor((Date.now() - startTime) / 60000);
+        timeEl.innerHTML = minutes + '<span class="unit">m</span>';
+        // Nudge the color warmer the longer you've been in one posture.
+        timeEl.style.color = minutes >= 45 ? '#f38ba8'
+                           : minutes >= 25 ? '#f9e2af'
+                           : '#a6e3a1';
+      }
+
+      resetBtn.addEventListener('click', () => {
+        startTime = Date.now();
+        render();
+      });
+
+      const interval = setInterval(render, 1000);
+      pip.addEventListener('pagehide', () => clearInterval(interval));
+
+      render();
+    });
+  </script>
+</body>
+</html>
